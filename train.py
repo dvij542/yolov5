@@ -95,7 +95,7 @@ def train(hyp, opt, device, tb_writer=None):
     else:
         model = Model(opt.cfg, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
     
-    print("Model state dict : ",model.state_dict())
+    print("Model state dict keys : ",model.state_dict().keys())
     with torch_distributed_zero_first(rank):
         check_dataset(data_dict)  # check
     train_path = data_dict['train']
