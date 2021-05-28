@@ -93,6 +93,30 @@ def train(hyp, opt, device, tb_writer=None):
         print("Minus dicts : ", minus_dicts(state_dict, model.state_dict()))
         print("Minus dicts : ", minus_dicts(model.state_dict(),state_dict))
         state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
+        
+        # Load pretrained weights for objects which are common 
+        if opt.class_map_pretrained is not None:
+            mapped_classes = np.loadtxt(opt.class_map_pretrained).astype(int)
+            params_from = minus_dicts(state_dict, model.state_dict())
+            params_to = minus_dicts(model.state_dict(),state_dict)
+            for layer in params_from :
+                weights_from = params_from[layer]
+                weights_to = params_to[layer]
+                nf = weights_from.shape[0]//3
+                nt = weights_to.shape[0]//3
+                i = 0
+                weights_to[:5,:,:,:] = weights_from[:5,:,:,:]
+                weights_to[nt:nt+5,:,:,:] = weights_from[nf:nf+5,:,:,:]
+                weights_to[2*nt:2*nt+5,:,:,:] = weights_from[2*nf:2*nf+5,:,:,:]
+
+                for j in mapped_classes :
+                    if j==-1 : 
+                        i = i+1
+                        continue
+                    weights_to[[5,nt+5,2*nt+5]+i,:,:,:] = weights_from[[5,nf+5,2*nf+5]+j,:,:,:]
+                    i=i+1
+                state_dict[layer] = weights_to.clone()
+        
         model.load_state_dict(state_dict, strict=False)  # load
         print("State dict keys :", state_dict.keys())
         logger.info('Transferred %g/%g items from %s' % (len(state_dict), len(model.state_dict()), weights))  # report
@@ -494,6 +518,7 @@ if __name__ == '__main__':
     parser.add_argument('--bbox_interval', type=int, default=-1, help='Set bounding-box image logging interval for W&B')
     parser.add_argument('--save_period', type=int, default=-1, help='Log model after every "save_period" epoch')
     parser.add_argument('--artifact_alias', type=str, default="latest", help='version of dataset artifact to be used')
+    parser.add_argument('--class_map_pretrained', type=str, default=None, help='Load weights for classes which intersect with the classes of pre-trained model')
     opt = parser.parse_args()
 
     # Set DDP variables
