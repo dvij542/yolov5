@@ -92,7 +92,6 @@ def train(hyp, opt, device, tb_writer=None):
         print("Length of state dict before : ", len(state_dict))
         print("Minus dicts : ", minus_dicts(state_dict, model.state_dict()).keys())
         print("Minus dicts : ", minus_dicts(model.state_dict(),state_dict).keys())
-        state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
         
         # Load pretrained weights for objects which are common 
         if opt.class_map_pretrained is not None:
@@ -101,6 +100,7 @@ def train(hyp, opt, device, tb_writer=None):
             params_from = minus_dicts(state_dict, model.state_dict())
             params_to = minus_dicts(model.state_dict(),state_dict)
             for layer in params_from :
+                
                 weights_from = params_from[layer]
                 weights_to = params_to[layer]
                 nf = weights_from.shape[0]//3
@@ -116,8 +116,10 @@ def train(hyp, opt, device, tb_writer=None):
                         continue
                     weights_to[[5,nt+5,2*nt+5]+i,:,:,:] = weights_from[[5,nf+5,2*nf+5]+j,:,:,:]
                     i=i+1
+                print(layer)
                 state_dict[layer] = weights_to.clone()
-        
+        else :
+            state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
         model.load_state_dict(state_dict, strict=False)  # load
         print("State dict keys :", state_dict.keys())
         logger.info('Transferred %g/%g items from %s' % (len(state_dict), len(model.state_dict()), weights))  # report
