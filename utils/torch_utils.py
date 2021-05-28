@@ -142,7 +142,7 @@ def intersect_dicts(da, db, exclude=()):
     return {k: v for k, v in da.items() if k in db and not any(x in k for x in exclude) and v.shape == db[k].shape}
 
 def minus_dicts(da, db) :
-    return {k: v.shape for k, v in da.items() if k in db and not v.shape == db[k].shape}
+    return {k: v.shape for k, v in da.items() if k in db and v.shape == db[k].shape}
 
 def initialize_weights(model):
     for m in model.modules():
