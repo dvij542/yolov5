@@ -90,8 +90,8 @@ def train(hyp, opt, device, tb_writer=None):
         state_dict = ckpt['model'].float().state_dict()  # to FP32
         print("Exclude :", exclude)
         print("Length of state dict before : ", len(state_dict))
-        print("Minus dicts : ", minus_dicts(state_dict, model.state_dict()))
-        print("Minus dicts : ", minus_dicts(model.state_dict(),state_dict))
+        print("Minus dicts : ", minus_dicts(state_dict, model.state_dict()).keys())
+        print("Minus dicts : ", minus_dicts(model.state_dict(),state_dict).keys())
         state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
         
         # Load pretrained weights for objects which are common 
