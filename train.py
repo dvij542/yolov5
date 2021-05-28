@@ -95,10 +95,11 @@ def train(hyp, opt, device, tb_writer=None):
         
         # Load pretrained weights for objects which are common 
         if opt.class_map_pretrained is not None:
-            print("yha aya")
+            print("Getting weights for layers :-")
             mapped_classes = np.loadtxt(opt.class_map_pretrained).astype(int)
             params_from = minus_dicts(state_dict, model.state_dict())
             params_to = minus_dicts(model.state_dict(),state_dict)
+            state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
             for layer in params_from :
                 
                 weights_from = params_from[layer]
@@ -131,6 +132,7 @@ def train(hyp, opt, device, tb_writer=None):
                         i=i+1
                     print(layer)
                 state_dict[layer] = weights_to.clone()
+            print("")
         else :
             state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
         model.load_state_dict(state_dict, strict=False)  # load
