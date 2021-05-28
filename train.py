@@ -91,6 +91,7 @@ def train(hyp, opt, device, tb_writer=None):
         print("Exclude :", exclude)
         print("Length of state dict before : ", len(state_dict))
         print("Minus dicts : ", minus_dicts(state_dict, model.state_dict()))
+        print("Minus dicts : ", minus_dicts(model.state_dict(),state_dict))
         state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
         model.load_state_dict(state_dict, strict=False)  # load
         print("State dict keys :", state_dict.keys())
