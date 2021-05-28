@@ -96,6 +96,7 @@ def train(hyp, opt, device, tb_writer=None):
         
         # Load pretrained weights for objects which are common 
         if opt.class_map_pretrained is not None:
+            print("yha aya")
             mapped_classes = np.loadtxt(opt.class_map_pretrained).astype(int)
             params_from = minus_dicts(state_dict, model.state_dict())
             params_to = minus_dicts(model.state_dict(),state_dict)
