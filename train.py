@@ -106,17 +106,30 @@ def train(hyp, opt, device, tb_writer=None):
                 nf = weights_from.shape[0]//3
                 nt = weights_to.shape[0]//3
                 i = 0
-                weights_to[:5,:,:,:] = weights_from[:5,:,:,:]
-                weights_to[nt:nt+5,:,:,:] = weights_from[nf:nf+5,:,:,:]
-                weights_to[2*nt:2*nt+5,:,:,:] = weights_from[2*nf:2*nf+5,:,:,:]
+                if len(weights_from.shape) > 1 :
+                    weights_to[:5,:,:,:] = weights_from[:5,:,:,:]
+                    weights_to[nt:nt+5,:,:,:] = weights_from[nf:nf+5,:,:,:]
+                    weights_to[2*nt:2*nt+5,:,:,:] = weights_from[2*nf:2*nf+5,:,:,:]
 
-                for j in mapped_classes :
-                    if j==-1 : 
-                        i = i+1
-                        continue
-                    weights_to[[5+i,nt+5+i,2*nt+5+i],:,:,:] = weights_from[[5+j,nf+5+j,2*nf+5+j],:,:,:]
-                    i=i+1
-                print(layer)
+                    for j in mapped_classes :
+                        if j==-1 : 
+                            i = i+1
+                            continue
+                        weights_to[[5+i,nt+5+i,2*nt+5+i],:,:,:] = weights_from[[5+j,nf+5+j,2*nf+5+j],:,:,:]
+                        i=i+1
+                    print(layer)
+                else :
+                    weights_to[:5] = weights_from[:5]
+                    weights_to[nt:nt+5] = weights_from[nf:nf+5]
+                    weights_to[2*nt:2*nt+5] = weights_from[2*nf:2*nf+5]
+
+                    for j in mapped_classes :
+                        if j==-1 : 
+                            i = i+1
+                            continue
+                        weights_to[[5+i,nt+5+i,2*nt+5+i]] = weights_from[[5+j,nf+5+j,2*nf+5+j]]
+                        i=i+1
+                    print(layer)
                 state_dict[layer] = weights_to.clone()
         else :
             state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
