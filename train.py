@@ -114,7 +114,7 @@ def train(hyp, opt, device, tb_writer=None):
                     if j==-1 : 
                         i = i+1
                         continue
-                    weights_to[[5,nt+5,2*nt+5]+i,:,:,:] = weights_from[[5,nf+5,2*nf+5]+j,:,:,:]
+                    weights_to[[5+i,nt+5+i,2*nt+5+i],:,:,:] = weights_from[[5+j,nf+5+j,2*nf+5+j],:,:,:]
                     i=i+1
                 print(layer)
                 state_dict[layer] = weights_to.clone()
