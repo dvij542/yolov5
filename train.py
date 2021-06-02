@@ -298,6 +298,7 @@ def train(hyp, opt, device, tb_writer=None):
 
     ### To save the initial model weights or test
     if True:  # if save
+        ema.update_attr(model, include=['yaml', 'nc', 'hyp', 'gr', 'names', 'stride', 'class_weights'])
         ckpt = {'epoch': 0,
                 'best_fitness': best_fitness,
                 'training_results': "None",
