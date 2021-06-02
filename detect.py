@@ -5,6 +5,7 @@ from pathlib import Path
 import cv2
 import torch
 import torch.backends.cudnn as cudnn
+import matplotlib.pyplot as plt
 
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
@@ -119,12 +120,13 @@ def detect(opt):
 
             # Stream results
             if view_img:
-                cv2.imshow(str(p), im0)
+                plt.imshow(im0)
                 cv2.waitKey(1)  # 1 millisecond
 
             # Save results (image with detections)
             if save_img:
                 if dataset.mode == 'image':
+                    # cv2.imshow(im0)
                     cv2.imwrite(save_path, im0)
                 else:  # 'video' or 'stream'
                     if vid_path != save_path:  # new video
