@@ -100,8 +100,7 @@ def train(hyp, opt, device, tb_writer=None):
             params_from = minus_dicts(state_dict, model.state_dict())
             params_to = minus_dicts(model.state_dict(),state_dict)
             state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
-            for layer in params_from :
-                
+            for layer in params_from :                
                 weights_from = params_from[layer]
                 weights_to = params_to[layer]
                 nf = weights_from.shape[0]//3
@@ -141,6 +140,7 @@ def train(hyp, opt, device, tb_writer=None):
     else:
         model = Model(opt.cfg, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
     
+
     print("Model state dict keys : ",model.state_dict().keys())
     with torch_distributed_zero_first(rank):
         check_dataset(data_dict)  # check
@@ -295,6 +295,21 @@ def train(hyp, opt, device, tb_writer=None):
                 f'Using {dataloader.num_workers} dataloader workers\n'
                 f'Logging results to {save_dir}\n'
                 f'Starting training for {epochs} epochs...')
+
+    ### To save the initial model weights or test
+    if True:  # if save
+        ckpt = {'epoch': 0,
+                'best_fitness': best_fitness,
+                'training_results': results_file.read_text(),
+                'model': deepcopy(model.module if is_parallel(model) else model).half(),
+                'ema': deepcopy(ema.ema).half(),
+                'updates': ema.updates,
+                'optimizer': optimizer.state_dict(),
+                'wandb_id': wandb_logger.wandb_run.id if wandb_logger.wandb else None}
+
+        # Save last, best and delete
+        torch.save(ckpt, last)
+        del ckpt
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         model.train()
 
