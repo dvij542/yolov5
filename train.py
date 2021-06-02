@@ -300,7 +300,7 @@ def train(hyp, opt, device, tb_writer=None):
     if True:  # if save
         ckpt = {'epoch': 0,
                 'best_fitness': best_fitness,
-                'training_results': results_file.read_text(),
+                'training_results': "None",
                 'model': deepcopy(model.module if is_parallel(model) else model).half(),
                 'ema': deepcopy(ema.ema).half(),
                 'updates': ema.updates,
