@@ -376,6 +376,7 @@ def manually_label(opt, model, path_filter):
     return loss
 
 def transfer_images(active_learning_path, train_path, img_paths) :
+    print("Transferring initiated")
     for img_path in img_paths :
         os.system("mv " + img_path + " " + img_path.replace("active_learning", "train"))
         label_path = img_path.replace("images","labels").replace(".jpg",".txt")
@@ -405,6 +406,7 @@ def active_learning(opt):
             first_time = False
             curr_paths = glob.glob(active_learning_path)
             curr_paths = curr_paths[:(len(curr_paths)*percent//100)]
+            print(curr_paths)
             transfer_images(active_learning_path, train_path, curr_paths)
             model = fine_tune(opt, model)
             total_effort = 3 * (len(curr_paths)*percent//100)
