@@ -383,6 +383,7 @@ def active_learning(opt):
     device = select_device(opt.device, batch_size=opt.batch_size)
     ckpt = torch.load(weights, map_location=device)  # load checkpoint
     model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
+    opt.total_batch_size = opt.batch_size
     total_effort = 0
     no_each_time = 0
     while not done :
