@@ -444,7 +444,7 @@ def active_learning(opt):
             total_effort = 3 * (len(curr_paths)*percent//100)
             no_each_time = len(curr_paths)*percent//100
             continue
-        scores_ordered_list = get_confidence_scores(model, active_learning_path , device)
+        scores_ordered_list = get_confidence_scores(model, train_path , device)
         curr_paths = []
         for i in range(no_each_time) :
             _, path = scores_ordered_list[i]
