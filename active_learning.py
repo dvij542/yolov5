@@ -333,6 +333,18 @@ def fine_tune(opt, model, device, hyp):
             # mAP
             ema.update_attr(model, include=['yaml', 'nc', 'hyp', 'gr', 'names', 'stride', 'class_weights'])
             final_epoch = epoch + 1 == epochs
+        
+        ckpt = {'epoch': epoch,
+                        'best_fitness': best_fitness,
+                        'training_results': "",
+                        'model': deepcopy(model.module if is_parallel(model) else model).half(),
+                        'ema': deepcopy(ema.ema).half(),
+                        'updates': ema.updates,
+                        'optimizer': optimizer.state_dict(),
+                        'wandb_id': wandb_logger.wandb_run.id if wandb_logger.wandb else None}
+
+                # Save last, best and delete
+        torch.save(ckpt, "trial.pt")
         # end epoch ----------------------------------------------------------------------------------------------------
     # end training
     return model
