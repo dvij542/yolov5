@@ -133,7 +133,7 @@ def fine_tune(opt, model, device, hyp):
 
     # EMA
     ema = ModelEMA(model) if rank in [-1, 0] else None
-
+    pretrained = True
     if pretrained:
         # Optimizer
         if ckpt['optimizer'] is not None:
