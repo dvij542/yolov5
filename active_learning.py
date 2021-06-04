@@ -387,6 +387,7 @@ def active_learning(opt):
     first_time = True
     t0 = time.time()
     percent = 10
+    weights = opt.weights
     with open(opt.data) as f:
         data_dict = yaml.safe_load(f)  # data dict
     active_learning_path = data_dict['active_learning']
