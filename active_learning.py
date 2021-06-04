@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import glob
 import sys
 import os
+import yaml
 
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
