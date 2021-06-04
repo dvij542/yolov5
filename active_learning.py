@@ -363,8 +363,6 @@ def active_learning(opt):
     first_time = True
     t0 = time.time()
     percent = 10
-    save_dir, epochs, batch_size, total_batch_size, weights, rank = \
-        Path(opt.save_dir), opt.epochs, opt.batch_size, opt.total_batch_size, opt.weights, opt.global_rank
     with open(opt.data) as f:
         data_dict = yaml.safe_load(f)  # data dict
     active_learning_path = data_dict['active_learning_path']
