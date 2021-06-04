@@ -157,7 +157,7 @@ def fine_tune(opt, model, device, hyp):
                         (weights, ckpt['epoch'], epochs))
             epochs += ckpt['epoch']  # finetune additional epochs
 
-        del ckpt, state_dict
+        del ckpt
 
     # Resume
     start_epoch, best_fitness = 0, 0.0
