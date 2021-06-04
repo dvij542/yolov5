@@ -134,6 +134,8 @@ def fine_tune(opt, model, device, hyp):
     # EMA
     ema = ModelEMA(model) if rank in [-1, 0] else None
     pretrained = True
+    ckpt = torch.load(weights, map_location=device)  # load checkpoint
+        
     if pretrained:
         # Optimizer
         if ckpt['optimizer'] is not None:
@@ -404,6 +406,7 @@ def active_learning(opt):
     with open(opt.hyp) as f:
         hyp = yaml.safe_load(f)
     device = select_device(opt.device, batch_size=opt.batch_size)
+    
     ckpt = torch.load(weights, map_location=device)  # load checkpoint
     model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
     opt.total_batch_size = opt.batch_size
