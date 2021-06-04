@@ -404,6 +404,7 @@ def active_learning(opt):
     while not done :
         if first_time :
             first_time = False
+            print(active_learning_path)
             curr_paths = glob.glob(active_learning_path)
             curr_paths = curr_paths[:(len(curr_paths)*percent//100)]
             print(curr_paths)
