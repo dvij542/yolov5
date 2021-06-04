@@ -42,6 +42,9 @@ from utils.plots import plot_images, plot_labels, plot_results, plot_evolution
 from utils.torch_utils import ModelEMA, select_device, intersect_dicts, minus_dicts, torch_distributed_zero_first, is_parallel
 from utils.wandb_logging.wandb_utils import WandbLogger, check_wandb_resume
 
+
+logger = logging.getLogger(__name__)
+
 def get_score(pred_boxes) :
     pred_scores = pred_boxes[:,4]
     if pred_scores.shape[0] == 0:
@@ -73,9 +76,8 @@ def get_confidence_scores(model, inf_dir) :
     return scores_list
 
 def fine_tune(opt, model):
-    logger.info(colorstr('hyperparameters: ') + ', '.join(f'{k}={v}' for k, v in hyp.items()))
-    save_dir, epochs, batch_size, total_batch_size, weights, rank = \
-        Path(opt.save_dir), opt.epochs, opt.batch_size, opt.total_batch_size, opt.weights, opt.global_rank
+    epochs, batch_size, total_batch_size, weights, rank = \
+        opt.epochs, opt.batch_size, opt.total_batch_size, opt.weights, opt.global_rank
 
     # Configure
     plots = not opt.evolve  # create plots
@@ -165,11 +167,7 @@ def fine_tune(opt, model):
             c = torch.tensor(labels[:, 0])  # classes
             # cf = torch.bincount(c.long(), minlength=nc) + 1.  # frequency
             # model._initialize_biases(cf.to(device))
-            if plots:
-                plot_labels(labels, names, save_dir, loggers)
-                if tb_writer:
-                    tb_writer.add_histogram('classes', c, 0)
-
+            
             # Anchors
             if not opt.noautoanchor:
                 check_anchors(dataset, model=model, thr=hyp['anchor_t'], imgsz=imgsz)
@@ -201,11 +199,7 @@ def fine_tune(opt, model):
     scheduler.last_epoch = start_epoch - 1  # do not move
     scaler = amp.GradScaler(enabled=cuda)
     compute_loss = ComputeLoss(model)  # init loss class
-    logger.info(f'Image sizes {imgsz} train, {imgsz_test} test\n'
-                f'Using {dataloader.num_workers} dataloader workers\n'
-                f'Logging results to {save_dir}\n'
-                f'Starting training for {epochs} epochs...')
-
+    
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         model.train()
 
@@ -286,17 +280,6 @@ def fine_tune(opt, model):
                     '%g/%g' % (epoch, epochs - 1), mem, *mloss, targets.shape[0], imgs.shape[-1])
                 pbar.set_description(s)
 
-                # Plot
-                if plots and ni < 3:
-                    f = save_dir / f'train_batch{ni}.jpg'  # filename
-                    Thread(target=plot_images, args=(imgs, targets, paths, f), daemon=True).start()
-                    if tb_writer:
-                        tb_writer.add_graph(torch.jit.trace(model, imgs, strict=False), [])  # add model graph
-                        # tb_writer.add_image(f, result, dataformats='HWC', global_step=epoch)
-                elif plots and ni == 10 and wandb_logger.wandb:
-                    wandb_logger.log({"Mosaics": [wandb_logger.wandb.Image(str(x), caption=x.name) for x in
-                                                  save_dir.glob('train*.jpg') if x.exists()]})
-
             # end batch ------------------------------------------------------------------------------------------------
         # end epoch ----------------------------------------------------------------------------------------------------
 
@@ -314,8 +297,8 @@ def fine_tune(opt, model):
     return model
 
 def manually_label(opt, model, path_filter):
-    save_dir, epochs, batch_size, total_batch_size, weights, rank = \
-        Path(opt.save_dir), opt.epochs, opt.batch_size, opt.total_batch_size, opt.weights, opt.global_rank
+    epochs, batch_size, total_batch_size, weights, rank = \
+        opt.epochs, opt.batch_size, opt.total_batch_size, opt.weights, opt.global_rank
 
     # Configure
     plots = not opt.evolve  # create plots
