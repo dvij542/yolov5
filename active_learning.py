@@ -386,6 +386,14 @@ def active_learning(opt):
     opt.total_batch_size = opt.batch_size
     total_effort = 0
     no_each_time = 0
+    opt.world_size = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
+    opt.global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
+    set_logging(opt.global_rank)
+    print(opt.global_rank)
+    if opt.global_rank in [-1, 0]:
+        check_git_status()
+        check_requirements(exclude=('pycocotools', 'thop'))
+
     while not done :
         if first_time :
             first_time = False
