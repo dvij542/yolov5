@@ -297,7 +297,7 @@ def fine_tune(opt, model, device):
     # end training
     return model
 
-def manually_label(opt, model, path_filter, device):
+def manually_label(opt, model, path_filter, device, hyp):
     epochs, batch_size, total_batch_size, weights, rank = \
         opt.epochs, opt.batch_size, opt.total_batch_size, opt.weights, opt.global_rank
 
@@ -402,7 +402,7 @@ def active_learning(opt):
             curr_paths = curr_paths[:(len(curr_paths)*percent//100)]
             print(curr_paths)
             # transfer_images(active_learning_path, train_path, curr_paths)
-            model = fine_tune(opt, model, device)
+            model = fine_tune(opt, model, device, hyp)
             total_effort = 3 * (len(curr_paths)*percent//100)
             no_each_time = len(curr_paths)*percent//100
             continue
@@ -411,7 +411,7 @@ def active_learning(opt):
         for i in range(no_each_time) :
             _, path = scores_ordered_list[i]
             curr_paths.append(path)
-        total_effort += manually_label(opt, model, curr_paths, device)
+        total_effort += manually_label(opt, model, curr_paths, device, hyp)
         transfer_images(active_learning_path, train_path, curr_paths)
         if len(glob.glob(active_learning_path)) == 0 :
             done = True
