@@ -67,7 +67,7 @@ def get_confidence_scores(model, inf_dir, device) :
             img = img.unsqueeze(0)
 
         # Inference
-        pred = model(img, augment=opt.augment)[0]
+        pred = model(img, augment=True)[0]
 
         # Apply NMS
         pred = non_max_suppression(pred)
