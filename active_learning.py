@@ -394,7 +394,9 @@ def active_learning(opt):
     nc = 1 if opt.single_cls else int(data_dict['nc'])  # number of classes
     with open(opt.hyp) as f:
         hyp = yaml.safe_load(f)
-    model = Model(opt.cfg, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
+    device = select_device(opt.device, batch_size=opt.batch_size)
+    ckpt = torch.load(weights, map_location=device)  # load checkpoint
+    model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
     total_effort = 0
     no_each_time = 0
     while not done :
