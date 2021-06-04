@@ -367,7 +367,7 @@ def active_learning(opt):
     with open(opt.data) as f:
         data_dict = yaml.safe_load(f)  # data dict
     active_learning_path = data_dict['active_learning']
-    train_path = data_dict['train_path']
+    train_path = data_dict['train']
     model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
     total_effort = 0
     no_each_time = 0
