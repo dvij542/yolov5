@@ -97,13 +97,14 @@ def fine_tune(opt, model, device, hyp):
     train_path = data_dict['train']
     test_path = data_dict['val']
     ckpt = torch.load(weights, map_location=device)  # load checkpoint
-    
+    state_dict = ckpt['model'].float().state_dict()  # to FP32
+    state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
+    model.load_state_dict(state_dict, strict=False)  # load
     model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
     # Freeze
     freeze = []  # parameter names to freeze (full or partial)
     print(model.named_parameters())
     for k, v in model.named_parameters():
-        print(k)
         v.requires_grad = True  # train all layers
         if any(x in k for x in freeze):
             print('freezing %s' % k)
@@ -402,7 +403,6 @@ def transfer_images(active_learning_path, train_path, img_paths) :
         label_path = img_path.replace("images","labels").replace(".jpg",".txt")
         os.system("mv " + label_path + " " + label_path.replace("active_learning", "train"))
 
-@torch.no_grad()
 def active_learning(opt):
     done = False
     first_time = True
