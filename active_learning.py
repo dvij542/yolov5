@@ -405,7 +405,7 @@ def active_learning(opt):
         if first_time :
             first_time = False
             print(active_learning_path)
-            curr_paths = glob.glob(active_learning_path)
+            curr_paths = glob.glob(active_learning_path + "/*")
             curr_paths = curr_paths[:(len(curr_paths)*percent//100)]
             print(curr_paths)
             transfer_images(active_learning_path, train_path, curr_paths)
@@ -413,7 +413,7 @@ def active_learning(opt):
             total_effort = 3 * (len(curr_paths)*percent//100)
             no_each_time = len(curr_paths)*percent//100
             continue
-        scores_ordered_list = get_confidence_scores(model, active_learning_path)
+        scores_ordered_list = get_confidence_scores(model, glob.glob(active_learning_path + "/*"))
         curr_paths = []
         for i in range(no_each_time) :
             _, path = scores_ordered_list[i]
