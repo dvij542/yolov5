@@ -96,7 +96,8 @@ def fine_tune(opt, model, device, hyp):
         check_dataset(data_dict)  # check
     train_path = data_dict['train']
     test_path = data_dict['val']
-
+    ckpt = torch.load(weights, map_location=device)  # load checkpoint
+    
     model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
     # Freeze
     freeze = []  # parameter names to freeze (full or partial)
@@ -145,7 +146,6 @@ def fine_tune(opt, model, device, hyp):
     # EMA
     ema = ModelEMA(model) if rank in [-1, 0] else None
     pretrained = True
-    ckpt = torch.load(weights, map_location=device)  # load checkpoint
         
     if pretrained:
         # Optimizer
