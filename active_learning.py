@@ -97,13 +97,12 @@ def fine_tune(opt, model, device, hyp):
     train_path = data_dict['train']
     test_path = data_dict['val']
     ckpt = torch.load(weights, map_location=device)  # load checkpoint
-    state_dict = ckpt['model'].float().state_dict()  # to FP32
-    state_dict = intersect_dicts(state_dict, model.state_dict())  # intersect
-    model.load_state_dict(state_dict, strict=False)  # load
-    model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
+    # state_dict = ckpt['model'].float().state_dict()  # to FP32
+    # state_dict = intersect_dicts(state_dict, model.state_dict())  # intersect
+    # model.load_state_dict(state_dict, strict=False)  # load
+    # model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
     # Freeze
     freeze = []  # parameter names to freeze (full or partial)
-    print(model.named_parameters())
     for k, v in model.named_parameters():
         v.requires_grad = True  # train all layers
         if any(x in k for x in freeze):
@@ -443,12 +442,12 @@ def active_learning(opt):
             total_effort = 3 * (len(curr_paths)*percent//100)
             no_each_time = len(curr_paths)*percent//100
             continue
-        scores_ordered_list = get_confidence_scores(model, glob.glob(active_learning_path + "/*"), device)
+        scores_ordered_list = get_confidence_scores(model, active_learning_path , device)
         curr_paths = []
         for i in range(no_each_time) :
             _, path = scores_ordered_list[i]
             curr_paths.append(path)
-        total_effort += manually_label(opt, model, curr_paths, device, hyp)
+        total_effort += manually_label(opt, model, glob.glob(curr_paths + "/*"), device, hyp)
         transfer_images(active_learning_path, train_path, curr_paths)
         if len(glob.glob(active_learning_path)) == 0 :
             done = True
