@@ -58,6 +58,7 @@ def get_confidence_scores(model, inf_dir, device) :
     # img_paths = glob.glob(inf_dir + "/*")
     dataset = LoadImages(inf_dir)
     scores_list = []
+    half = False
     for path, img, im0s, vid_cap in dataset :
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
