@@ -96,8 +96,8 @@ def fine_tune(opt, model, device, hyp):
         check_dataset(data_dict)  # check
     train_path = data_dict['train']
     test_path = data_dict['val']
-    
-    model = Model(opt.cfg, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
+
+    model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
     # Freeze
     freeze = []  # parameter names to freeze (full or partial)
     print(model.named_parameters())
