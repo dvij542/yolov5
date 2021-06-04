@@ -96,12 +96,13 @@ def fine_tune(opt, model, device, hyp):
         check_dataset(data_dict)  # check
     train_path = data_dict['train']
     test_path = data_dict['val']
-
+    
+    model = Model(opt.cfg, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
     # Freeze
     freeze = []  # parameter names to freeze (full or partial)
     print(model.named_parameters())
     for k, v in model.named_parameters():
-        print(v)
+        print(k)
         v.requires_grad = True  # train all layers
         if any(x in k for x in freeze):
             print('freezing %s' % k)
