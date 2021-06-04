@@ -40,8 +40,7 @@ def get_confidence_scores(model, inf_dir) :
         pred = model(img, augment=opt.augment)[0]
 
         # Apply NMS
-        pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, opt.classes, opt.agnostic_nms,
-                                   max_det=opt.max_det)
+        pred = non_max_suppression(pred)
         print(len(pred))
         print(pred[0].shape)
         score = get_score(pred[0])
@@ -436,9 +435,4 @@ if __name__ == '__main__':
     opt = parser.parse_args()
     check_requirements(exclude=('tensorboard', 'pycocotools', 'thop'))
 
-    if opt.update:  # update all models (to fix SourceChangeWarning)
-        for opt.weights in ['yolov5s.pt', 'yolov5m.pt', 'yolov5l.pt', 'yolov5x.pt']:
-            detect(opt=opt)
-            strip_optimizer(opt.weights)
-    else:
-        detect(opt=opt)
+    active_learning(opt=opt)
