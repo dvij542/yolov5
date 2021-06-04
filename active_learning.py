@@ -76,7 +76,7 @@ def get_confidence_scores(model, inf_dir, device) :
     scores_list.sort()
     return scores_list
 
-def fine_tune(opt, model, device):
+def fine_tune(opt, model, device, hyp):
     epochs, batch_size, total_batch_size, weights, rank = \
         opt.epochs, opt.batch_size, opt.total_batch_size, opt.weights, opt.global_rank
 
