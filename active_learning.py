@@ -53,7 +53,7 @@ def get_score(pred_boxes) :
     return torch.mean(pred_scores)
 
 
-def get_confidence_scores(model, inf_dir) :
+def get_confidence_scores(model, inf_dir, device) :
     img_paths = glob.glob(inf_dir + "/*")
     dataset = LoadImages(img_paths)
     scores_list = []
@@ -76,7 +76,7 @@ def get_confidence_scores(model, inf_dir) :
     scores_list.sort()
     return scores_list
 
-def fine_tune(opt, model):
+def fine_tune(opt, model, device):
     epochs, batch_size, total_batch_size, weights, rank = \
         opt.epochs, opt.batch_size, opt.total_batch_size, opt.weights, opt.global_rank
 
@@ -297,7 +297,7 @@ def fine_tune(opt, model):
     # end training
     return model
 
-def manually_label(opt, model, path_filter):
+def manually_label(opt, model, path_filter, device):
     epochs, batch_size, total_batch_size, weights, rank = \
         opt.epochs, opt.batch_size, opt.total_batch_size, opt.weights, opt.global_rank
 
@@ -402,16 +402,16 @@ def active_learning(opt):
             curr_paths = curr_paths[:(len(curr_paths)*percent//100)]
             print(curr_paths)
             # transfer_images(active_learning_path, train_path, curr_paths)
-            model = fine_tune(opt, model)
+            model = fine_tune(opt, model, device)
             total_effort = 3 * (len(curr_paths)*percent//100)
             no_each_time = len(curr_paths)*percent//100
             continue
-        scores_ordered_list = get_confidence_scores(model, glob.glob(active_learning_path + "/*"))
+        scores_ordered_list = get_confidence_scores(model, glob.glob(active_learning_path + "/*"), device)
         curr_paths = []
         for i in range(no_each_time) :
             _, path = scores_ordered_list[i]
             curr_paths.append(path)
-        total_effort += manually_label(opt, model, curr_paths)
+        total_effort += manually_label(opt, model, curr_paths, device)
         transfer_images(active_learning_path, train_path, curr_paths)
         if len(glob.glob(active_learning_path)) == 0 :
             done = True
