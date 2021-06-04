@@ -333,7 +333,7 @@ def fine_tune(opt, model, device, hyp):
             final_epoch = epoch + 1 == epochs
         # end epoch ----------------------------------------------------------------------------------------------------
     # end training
-    return model
+    return ema.ema
 
 def manually_label(opt, model, path_filter, device, hyp):
     epochs, batch_size, total_batch_size, weights, rank = \
