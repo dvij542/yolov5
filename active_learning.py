@@ -101,6 +101,7 @@ def fine_tune(opt, model, device, hyp):
     freeze = []  # parameter names to freeze (full or partial)
     print(model.named_parameters())
     for k, v in model.named_parameters():
+        print(v)
         v.requires_grad = True  # train all layers
         if any(x in k for x in freeze):
             print('freezing %s' % k)
