@@ -341,7 +341,7 @@ def fine_tune(opt, model, device, hyp):
                         'ema': deepcopy(ema.ema).half(),
                         'updates': ema.updates,
                         'optimizer': optimizer.state_dict(),
-                        'wandb_id': wandb_logger.wandb_run.id if wandb_logger.wandb else None}
+                        'wandb_id': None}
 
                 # Save last, best and delete
         torch.save(ckpt, "trial.pt")
