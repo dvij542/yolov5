@@ -533,11 +533,12 @@ def get_map_of_labels(opt, model_path, path_filter, device, hyp):
     if len(stats) and stats[0].any():
         p, r, ap, f1, ap_class = ap_per_class(*stats, plot=plots, save_dir=save_dir, names=names)
         ap50, ap = ap[:, 0], ap.mean(1)  # AP@0.5, AP@0.5:0.95
-        mp, mr, map50, map = p.mean(), r.mean(), ap50.mean(), ap.mean()
+        mp, mr, map50, map1 = p.mean(), r.mean(), ap50.mean(), ap.mean()
         nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class
     else:
         nt = torch.zeros(1)
-    return map
+    print("Map :", map1)
+    return map1
 
 
 def transfer_images(active_learning_path, train_path, img_paths) :
@@ -580,12 +581,12 @@ def active_learning(opt):
             first_time = False
             print(active_learning_path)
             curr_paths = glob.glob(active_learning_path + "/*")
+            total_effort = (len(curr_paths)*percent//100)
+            no_each_time = len(curr_paths)*percent//100
             curr_paths = curr_paths[:(len(curr_paths)*percent//100)]
             print("Length :", len(curr_paths))
             # transfer_images(active_learning_path, train_path, curr_paths)
             # model = fine_tune(opt, model, device, hyp)
-            total_effort = (len(curr_paths)*percent//100)
-            no_each_time = len(curr_paths)*percent//100
         else :
             model = fine_tune(opt, "trial.pt", device, hyp) 
         scores_ordered_list = get_confidence_scores("trial.pt", train_path , device)
