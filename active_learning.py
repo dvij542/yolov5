@@ -409,7 +409,11 @@ def get_map_of_labels(opt, model_path, path_filter, device, hyp):
     imgsz, imgsz_test = [check_img_size(x, gs) for x in opt.img_size]  # verify imgsz are gs-multiples
     task = 'test'
     dataloader = create_dataloader(path_filter, imgsz, 1, gs, opt, pad=0.5, rect=True, prefix='test')[0]
-    loss = 0
+    s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Labels', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
+    p, r, f1, mp, mr, map50, map, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
+    loss = torch.zeros(3, device=device)
+    jdict, stats, ap, ap_class, wandb_images = [], [], [], [], []
+    
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         img = img.to(device, non_blocking=True)
         img = img.half() if half else img.float()  # uint8 to fp16/32
