@@ -361,7 +361,7 @@ def fine_tune(opt, model_path, device, hyp):
     # end training
     return model
 
-def get_accuracy_of_labels(opt, model_path, path_filter, device, hyp):
+def get_map_of_labels(opt, model_path, path_filter, device, hyp):
     epochs, batch_size, total_batch_size, weights, rank = \
         opt.epochs, opt.batch_size, opt.total_batch_size, opt.weights, opt.global_rank
 
@@ -594,7 +594,7 @@ def active_learning(opt):
             score, path = scores_ordered_list[i]
             print(score)
             curr_paths.append(path)
-        total_effort += no_each_time*(1 - manually_label(opt, model, glob.glob(curr_paths + "/*"), device, hyp))
+        total_effort += no_each_time*(1 - get_map_of_labels(opt, model, glob.glob(curr_paths + "/*"), device, hyp))
         print(total_effort)
         transfer_images(active_learning_path, train_path, curr_paths)
         if len(glob.glob(active_learning_path)) == 0 :
