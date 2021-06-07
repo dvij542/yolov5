@@ -361,6 +361,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
             f = []  # image files
             if isinstance(path, list) :
                 f = path
+                p = Path(f[-1])
             else :
                 for p in path if isinstance(path, list) else [path]:
                     p = Path(p)  # os-agnostic
