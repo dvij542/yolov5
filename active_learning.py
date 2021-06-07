@@ -54,13 +54,18 @@ def get_score(pred_boxes) :
     return torch.mean(pred_scores)
 
 
-def get_confidence_scores(model, inf_dir, device) :
+def get_confidence_scores(model_path, inf_dir, device) :
     # img_paths = glob.glob(inf_dir + "/*")
+    half = device.type != 'cpu'
+    model = attempt_load(model_path, map_location=device)  # load FP32 model
+    stride = int(model.stride.max())  # model stride
+    imgsz = check_img_size(imgsz, s=stride)  # check img_size
+    names = model.module.names if hasattr(model, 'module') else model.names  # get class names
+    if half:
+        model.half()  # to FP16
+
     dataset = LoadImages(inf_dir)
     scores_list = []
-    half = device.type != 'cpu'
-    if half :
-        model = model.half()
     for path, img, im0s, vid_cap in dataset :
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -458,7 +463,7 @@ def active_learning(opt):
             total_effort = 3 * (len(curr_paths)*percent//100)
             no_each_time = len(curr_paths)*percent//100
             continue
-        scores_ordered_list = get_confidence_scores(model, train_path , device)
+        scores_ordered_list = get_confidence_scores("trial.pt", train_path , device)
         curr_paths = []
         for i in range(no_each_time) :
             _, path = scores_ordered_list[i]
