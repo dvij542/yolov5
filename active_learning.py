@@ -78,8 +78,8 @@ def get_confidence_scores(model_path, inf_dir, device) :
 
         # Apply NMS
         pred = non_max_suppression(pred)
-        print(len(pred))
-        print(pred[0].shape)
+        # print(len(pred))
+        # print(pred[0].shape)
         score = get_score(pred[0])
         scores_list.append((score,path))
     scores_list.sort()
@@ -459,7 +459,7 @@ def active_learning(opt):
             curr_paths = curr_paths[:(len(curr_paths)*percent//100)]
             print(curr_paths)
             # transfer_images(active_learning_path, train_path, curr_paths)
-            model = fine_tune(opt, model, device, hyp)
+            # model = fine_tune(opt, model, device, hyp)
             total_effort = 3 * (len(curr_paths)*percent//100)
             no_each_time = len(curr_paths)*percent//100
             continue
