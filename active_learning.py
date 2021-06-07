@@ -408,7 +408,7 @@ def get_map_of_labels(opt, model_path, path_filter, device, hyp):
     nl = model.model[-1].nl  # number of detection layers (used for scaling hyp['obj'])
     imgsz, imgsz_test = [check_img_size(x, gs) for x in opt.img_size]  # verify imgsz are gs-multiples
 
-    dataloader = create_dataloader(path_filter, imgsz, 1, gs, opt, pad=0.5, rect=True, task='test')[0]
+    dataloader = create_dataloader(path_filter, imgsz, 1, gs, opt, pad=0.5, rect=True, prefix='test')[0]
     loss = 0
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         img = img.to(device, non_blocking=True)
