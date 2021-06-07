@@ -78,9 +78,10 @@ def get_confidence_scores(model_path, inf_dir, device) :
 
         # Apply NMS
         pred = non_max_suppression(pred)
-        # print(len(pred))
+        print(len(pred))
         # print(pred[0].shape)
         score = get_score(pred[0])
+        print(score)
         scores_list.append((score,path))
     scores_list.sort()
     return scores_list
