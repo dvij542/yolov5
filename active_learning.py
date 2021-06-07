@@ -594,6 +594,7 @@ def active_learning(opt):
             score, path = scores_ordered_list[i]
             print(score)
             curr_paths.append(path)
+        print(total_effort)
         total_effort += no_each_time*(1 - get_map_of_labels(opt, model, glob.glob(curr_paths + "/*"), device, hyp))
         print(total_effort)
         transfer_images(active_learning_path, train_path, curr_paths)
