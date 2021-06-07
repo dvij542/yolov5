@@ -581,7 +581,7 @@ def active_learning(opt):
             print(active_learning_path)
             curr_paths = glob.glob(active_learning_path + "/*")
             curr_paths = curr_paths[:(len(curr_paths)*percent//100)]
-            print(curr_paths)
+            print("Length :", len(curr_paths))
             # transfer_images(active_learning_path, train_path, curr_paths)
             # model = fine_tune(opt, model, device, hyp)
             total_effort = (len(curr_paths)*percent//100)
