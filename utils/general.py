@@ -485,7 +485,7 @@ def wh_iou(wh1, wh2):
 
 
 def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, multi_label=False,
-                        labels=(), max_det=300):
+                        labels=(), max_det=300, out_var=None):
     """Runs Non-Maximum Suppression (NMS) on inference results
 
     Returns:
@@ -494,7 +494,8 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
 
     nc = prediction.shape[2] - 5  # number of classes
     xc = prediction[..., 4] > conf_thres  # candidates
-
+    if out_var is not None :
+        epistemic_errors = out_var
     # Checks
     assert 0 <= conf_thres <= 1, f'Invalid Confidence threshold {conf_thres}, valid values are between 0.0 and 1.0'
     assert 0 <= iou_thres <= 1, f'Invalid IoU {iou_thres}, valid values are between 0.0 and 1.0'
@@ -513,7 +514,8 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
         # Apply constraints
         # x[((x[..., 2:4] < min_wh) | (x[..., 2:4] > max_wh)).any(1), 4] = 0  # width-height
         x = x[xc[xi]]  # confidence
-
+        if out_var is not None :
+            epistemic_error = epistemic_errors[xi][xc[xi]]
         # Cat apriori labels if autolabelling
         if labels and len(labels[xi]):
             l = labels[xi]
@@ -529,6 +531,8 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
 
         # Compute conf
         x[:, 5:] *= x[:, 4:5]  # conf = obj_conf * cls_conf
+        if out_var is not None :
+            x[:, 5:] *= (1. - epistemic_error[:, 4:5])  # conf = conf * (1 - epistemic_uncertainty_object)
 
         # Box (center x, center y, width, height) to (x1, y1, x2, y2)
         box = xywh2xyxy(x[:, :4])

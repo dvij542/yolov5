@@ -40,7 +40,9 @@ def test(data,
          compute_loss=None,
          half_precision=True,
          is_coco=False,
-         opt=None):
+         opt=None,
+         epistemic_uncertainty=False,
+         n_samples = 10):
     # Initialize/load model and set device
     training = model is not None
     if training:  # called by train.py
@@ -69,7 +71,7 @@ def test(data,
         model.half()
 
     # Configure
-    model.eval()
+    # model.eval()
     if isinstance(data, str):
         is_coco = data.endswith('coco.yaml')
         with open(data) as f:
@@ -106,9 +108,21 @@ def test(data,
         targets = targets.to(device)
         nb, _, height, width = img.shape  # batch size, channels, height, width
 
+        out_var = None 
         # Run model
         t = time_synchronized()
-        out, train_out = model(img, augment=augment)  # inference and training outputs
+        if epistemic_uncertainty :
+            outs = []
+            for i in range(n_samples) :
+                out, train_out = model(img, augment=augment)  # inference and training outputs
+                outs.append(out)
+            out_t = torch.stack(outs)
+            out = torch.sum(out_t,axis=0)/n_samples
+            out_var = torch.var(out_t,axis=0)
+            
+        else :
+            out, train_out = model(img, augment=augment)  # inference and training outputs
+
         t0 += time_synchronized() - t
 
         # Compute loss
@@ -119,7 +133,7 @@ def test(data,
         targets[:, 2:] *= torch.Tensor([width, height, width, height]).to(device)  # to pixels
         lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
         t = time_synchronized()
-        out = non_max_suppression(out, conf_thres, iou_thres, labels=lb, multi_label=True, agnostic=single_cls)
+        out = non_max_suppression(out, conf_thres, iou_thres, out_var=out_var, labels=lb, multi_label=True, agnostic=single_cls)
         t1 += time_synchronized() - t
 
         # Statistics per image

@@ -46,12 +46,12 @@ from utils.datasets import LoadStreams, LoadImages
 from utils.torch_utils import select_device, time_synchronized
 from utils.general import coco80_to_coco91_class, check_dataset, check_file, check_img_size, check_requirements, \
     box_iou, non_max_suppression, scale_coords, xyxy2xywh, xywh2xyxy, set_logging, increment_path, colorstr
-from utils.metrics import ap_per_class, ConfusionMatrix, get_prec_recall_curve
+from utils.metrics import ap_per_class, ConfusionMatrix
 
 
 logger = logging.getLogger(__name__)
-automated_label_path = "../BCCD/automated_label/images"
-
+automated_label_path = "../VOC/images/automated_label"
+req_qual = 1.2
 
 def get_score(pred_boxes) :
     pred_scores = pred_boxes[:,4]
@@ -60,7 +60,7 @@ def get_score(pred_boxes) :
     return torch.mean(pred_scores)
 
 
-def get_confidence_scores(model_path, inf_dir, device, n_samples=10, epistemic_uncertainty=False) :
+def get_confidence_scores(model_path, inf_dir, device) :
     # img_paths = glob.glob(inf_dir + "/*")
     half = device.type != 'cpu'
     model = attempt_load(model_path, map_location=device)  # load FP32 model
@@ -73,7 +73,6 @@ def get_confidence_scores(model_path, inf_dir, device, n_samples=10, epistemic_u
 
     dataset = LoadImages(inf_dir)
     scores_list = []
-    augment=False
     for path, img, im0s, vid_cap in dataset :
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -83,22 +82,9 @@ def get_confidence_scores(model_path, inf_dir, device, n_samples=10, epistemic_u
 
         # Inference
         pred = model(img, augment=False)[0]
-        out_var = None 
-        # Run model
-        t = time_synchronized()
-        if epistemic_uncertainty :
-            outs = []
-            for i in range(n_samples) :
-                out, train_out = model(img, augment=augment)  # inference and training outputs
-                outs.append(out)
-            out_t = torch.stack(outs)
-            out = torch.sum(out_t,axis=0)/n_samples
-            out_var = torch.var(out_t,axis=0)
-        else :
-            out, train_out = model(img, augment=augment)  # inference and training outputs
 
         # Apply NMS
-        pred = non_max_suppression(pred,out_var=out_var)
+        pred = non_max_suppression(pred)
         # print(len(pred))
         # print(pred[0].shape)
         score = get_score(pred[0])
@@ -108,16 +94,23 @@ def get_confidence_scores(model_path, inf_dir, device, n_samples=10, epistemic_u
     return scores_list
 
 def get_thres(opt, model_path, device, hyp) :
-    map1, file_to_map = get_precision_recall(opt,model_path, opt.val_path, device,hyp,image_wise_statistics=False, epistemic_uncertainty=opt.bayesian)
-    if map1 < opt.model_qual :
-        print("Model hasn't satisfied quality metric, not showing any labels !", map1)
-        return 1
-    p,r,px = get_precision_recall(opt,model_path, opt.val_path, device,hyp,image_wise_statistics=True, epistemic_uncertainty=opt.bayesian)
-    # print(p)
-    # print(px)
-    for i in range(px.shape[0]) :
-        if p[i] > opt.prec_qual : 
-            return px[i]
+    _, file_to_map = get_map_of_labels(opt,model_path, "../VOC/images/val", device,hyp,image_wise_statistics=True)
+    conf_thress = np.linspace(0.,0.9,10)
+    for conf_thres in conf_thress :
+        num = 0
+        den = 0
+        for map_val in file_to_map :
+            conf = map_val[1]
+            if conf >= conf_thres :
+                num += map_val[0]*map_val[2]
+                den += map_val[2]
+        ap = 1
+        if den != 0 :
+            ap = num/den
+        print(conf_thres, " : ", ap.cpu().numpy())
+        if ap>req_qual :
+            print("Quality requirement satisfied")
+            return ap
     return 1
 
 def fine_tune(opt, model_path, device, hyp):
@@ -142,7 +135,7 @@ def fine_tune(opt, model_path, device, hyp):
     train_path = data_dict['train']
     test_path = data_dict['val']
     ckpt = torch.load(model_path, map_location=device)  # load checkpoint
-    model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors'),dont_print=True, bayesian=opt.bayesian).to(device)  # create
+    model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors'),dont_print=True).to(device)  # create
     state_dict = ckpt['model'].float().state_dict()  # to FP32
     state_dict = intersect_dicts(state_dict, model.state_dict())  # intersect
     model.load_state_dict(state_dict, strict=False)  # load
@@ -251,7 +244,7 @@ def fine_tune(opt, model_path, device, hyp):
     # Process 0
     if rank in [-1, 0]:
         testloader = create_dataloader(test_path, imgsz_test, batch_size * 2, gs, opt,  # testloader
-                                       hyp=hyp, cache=opt.cache_images and not opt.notest, rect=opt.rect, rank=-1,
+                                       hyp=hyp, cache=opt.cache_images and not opt.notest, rect=True, rank=-1,
                                        world_size=opt.world_size, workers=opt.workers,
                                        pad=0.5, prefix=colorstr('val: '))[0]
 
@@ -293,7 +286,7 @@ def fine_tune(opt, model_path, device, hyp):
     scaler = amp.GradScaler(enabled=cuda)
     compute_loss = ComputeLoss(model)  # init loss class
     
-    for epoch in range(0, epochs):  # epoch ------------------------------------------------------------------
+    for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         model.train()
 
         # Update image weights (optional)
@@ -387,18 +380,25 @@ def fine_tune(opt, model_path, device, hyp):
             final_epoch = epoch + 1 == epochs
             if not opt.notest or final_epoch:  # Calculate mAP
                 results, maps, times = test.test(data_dict,
-                                                 batch_size=batch_size*2,
+                                                 batch_size=batch_size * 2,
                                                  imgsz=imgsz_test,
                                                  model=ema.ema,
                                                  single_cls=opt.single_cls,
                                                  dataloader=testloader,
                                                  plots=False,
                                                  compute_loss=compute_loss,
-                                                 is_coco=is_coco,
-                                                 epistemic_uncertainty=opt.bayesian)
+                                                 is_coco=is_coco)
 
             
-            
+            # Log
+            # tags = ['train/box_loss', 'train/obj_loss', 'train/cls_loss',  # train loss
+            #         'metrics/precision', 'metrics/recall', 'metrics/mAP_0.5', 'metrics/mAP_0.5:0.95',
+            #         'val/box_loss', 'val/obj_loss', 'val/cls_loss',  # val loss
+            #         'x/lr0', 'x/lr1', 'x/lr2']  # params
+            # for x, tag in zip(list(mloss[:-1]) + list(results) + lr, tags):
+            #     if tb_writer:
+            #         tb_writer.add_scalar(tag, x, epoch)  # tensorboard
+                
             # Update best mAP
             fi = fitness(np.array(results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
             if fi > best_fitness:
@@ -423,12 +423,12 @@ def fine_tune(opt, model_path, device, hyp):
                 #             last.parent, opt, epoch, fi, best_model=best_fitness == fi)
                 del ckpt
 
-    os.system('rm /content/drive/MyDrive/BCCD/valid/labels.cache')    
+        
         # end epoch ----------------------------------------------------------------------------------------------------
     # end training
     return model
 
-def get_precision_recall(opt, model_path, path_filter, device, hyp, image_wise_statistics=False, epistemic_uncertainty=False, n_samples=10):
+def get_map_of_labels(opt, model_path, path_filter, device, hyp, image_wise_statistics=False):
     weights=None
     batch_size=32
     imgsz=640
@@ -519,18 +519,8 @@ def get_precision_recall(opt, model_path, path_filter, device, hyp, image_wise_s
         nb, _, height, width = img.shape  # batch size, channels, height, width
 
         # Run model
-        out_var = None 
         t = time_synchronized()
-        if epistemic_uncertainty :
-            outs = []
-            for i in range(n_samples) :
-                out, train_out = model(img, augment=augment)  # inference and training outputs
-                outs.append(out)
-            out_t = torch.stack(outs)
-            out = torch.sum(out_t,axis=0)/n_samples
-            out_var = torch.var(out_t,axis=0)
-        else :
-            out, train_out = model(img, augment=augment)  # inference and training outputs
+        out, train_out = model(img, augment=False)  # inference and training outputs
         t0 += time_synchronized() - t
 
         
@@ -538,7 +528,7 @@ def get_precision_recall(opt, model_path, path_filter, device, hyp, image_wise_s
         targets[:, 2:] *= torch.Tensor([width, height, width, height]).to(device)  # to pixels
         lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
         t = time_synchronized()
-        out = non_max_suppression(out, conf_thres, iou_thres, multi_label=True, out_var=out_var)#, labels=lb, multi_label=True, agnostic=single_cls)
+        out = non_max_suppression(out)#, conf_thres, iou_thres, labels=lb, multi_label=True, agnostic=single_cls)
         t1 += time_synchronized() - t
 
         # Statistics per image
@@ -553,7 +543,7 @@ def get_precision_recall(opt, model_path, path_filter, device, hyp, image_wise_s
                 if nl:
                     stats.append((torch.zeros(0, niou, dtype=torch.bool), torch.Tensor(), torch.Tensor(), tcls))
                 else :
-                    print("Anomaly at ", batch_i)
+                    print("Anomaly at ", batch_it)
                 continue
 
             # Predictions
@@ -621,45 +611,52 @@ def get_precision_recall(opt, model_path, path_filter, device, hyp, image_wise_s
             # Append statistics (correct, conf, pcls, tcls)
             stats.append((correct.cpu(), pred[:, 4].cpu(), pred[:, 5].cpu(), tcls))
 
+        
+
     # Compute statistics
     if image_wise_statistics :
-        stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy
-        if len(stats) and stats[0].any():
-            p, r, px = get_prec_recall_curve(*stats, plot=False, save_dir=save_dir, names=names)
-            pmean = p.mean(0)
-            rmean = r.mean(0)
-        else:
-            pmean = 1
-            rmean = 0
-            px = 0
-        return pmean, rmean, px
+        print("Length comparision :", len(stats), len(file_paths))
+        for k in range(len(stats)) :
+            stat = stats[k]
+            # p, r, ap, f1, ap_class = ap_per_class(np.array(stat[0]), np.array(stat[1]), np.array(stat[2]), np.array(stat[3]), plot=False, save_dir=save_dir, names=names)
+            # ap50, ap = ap[:, 0], ap.mean(1)  # AP@0.5, AP@0.5:0.95
+            # mp, mr, map50, map1 = p.mean(), r.mean(), ap50.mean(), ap.mean()
+            if stat[0].shape[0]!=0 :
+                # print(stat[0].shape)
+                no_of_corrects = np.sum(stat[0][:,0].cpu().numpy().astype(np.int))
+            else :
+                no_of_corrects = 0
+
+            no_of_gt_labels = len(stat[3])#.shape[0]
+            no_of_pred_labels = stat[0].shape[0]
+            map1 = no_of_corrects/(no_of_gt_labels + no_of_pred_labels - no_of_corrects)
+            if stat[1].shape[0]!=0 :
+                file_to_map.append((stat[1].mean(), map1, (no_of_gt_labels + no_of_pred_labels - no_of_corrects)))
+            else : 
+                file_to_map.append((0, 0, 1))
+
+        map1 = -1
+    
     else :
         stats = [np.concatenate(x, 0) for x in zip(*stats)]  # to numpy
         if len(stats) and stats[0].any():
             p, r, ap, f1, ap_class = ap_per_class(*stats, plot=False, save_dir=save_dir, names=names)
             ap50, ap = ap[:, 0], ap.mean(1)  # AP@0.5, AP@0.5:0.95
             mp, mr, map50, map1 = p.mean(), r.mean(), ap50.mean(), ap.mean()
+            for k in range(ap.shape[0]) :
+                print(file_paths[k].split('/')[-1])
+                file_to_map[file_paths[k].split('/')[-1]] = ap[k]
             nt = np.bincount(stats[3].astype(np.int64), minlength=nc)  # number of targets per class
         else:
             nt = torch.zeros(1)
-        # print("Map :", map1)
+        print("Map :", map1)
     
-        return map1, file_to_map
+    return map1, file_to_map
 
-def get_precision_recall_at(opt, model_path, path_filter, device, hyp, conf) :
-    p,r,px = get_precision_recall(opt, model_path, path_filter, device, hyp, image_wise_statistics=True, epistemic_uncertainty=opt.bayesian)
-    # px = -px
-    # print(px)
-    # print(p)
-    # print(r)
-    for i in range(px.shape[0]) :
-        if px[i]>conf :
-            return p[i], r[i]
-    return 1, 0
 
 def transfer_images(active_learning_path, target_path, img_paths) :
     print("Transferring initiated")
-    target_keywd = target_path.split('/')[-2]
+    target_keywd = target_path.split('/')[-1]
     for img_path in img_paths :
         # print("mv \"" + img_path + "\" \"" + img_path.replace("active_learning", "train") + "\"")
         os.system("mv \"" + img_path + "\" \"" + img_path.replace("active_learning", target_keywd) + "\"")
@@ -667,23 +664,9 @@ def transfer_images(active_learning_path, target_path, img_paths) :
         os.system("mv \"" + label_path + "\" \"" + label_path.replace("active_learning", target_keywd) + "\"")
     print("Transferring ended")
 
-def copy_images(active_learning_path, target_path, img_paths) :
-    print("Copying test images and model initiated")
-    os.makedirs(target_path, exist_ok = True)
-    os.makedirs(target_path.replace("images","labels"), exist_ok = True)
-    target_keywd = target_path.split('/')[-2]
-    for img_path in img_paths :
-        # print("mv \"" + img_path + "\" \"" + img_path.replace("active_learning", "train") + "\"")
-        os.system("cp \"" + img_path + "\" \"" + img_path.replace("active_learning", target_keywd) + "\"")
-        label_path = img_path.replace("images","labels").replace(".jpg",".txt")
-        os.system("cp \"" + label_path + "\" \"" + label_path.replace("active_learning", target_keywd) + "\"")
-    os.system("cp trial.pt " + target_path + "/")
-    print("Copying test images and model ended")
-
-
 def active_learning(opt):
     done = False
-    first_time = False
+    first_time = True
     t0 = time.time()
     percent = 10
     epochs_red = opt.epochs*percent//100
@@ -692,14 +675,6 @@ def active_learning(opt):
         data_dict = yaml.safe_load(f)  # data dict
     active_learning_path = data_dict['active_learning']
     train_path = data_dict['train']
-    opt.val_path = data_dict['val']
-    print(active_learning_path,train_path)
-    # Make necessary directories 
-    os.makedirs(active_learning_path, exist_ok = True) 
-    os.makedirs(train_path, exist_ok = True) 
-    os.makedirs(active_learning_path.replace('images','labels'), exist_ok = True) 
-    os.makedirs(train_path.replace('images','labels'), exist_ok = True) 
-    
     nc = 1 if opt.single_cls else int(data_dict['nc'])  # number of classes
     with open(opt.hyp) as f:
         hyp = yaml.safe_load(f)
@@ -709,7 +684,7 @@ def active_learning(opt):
     model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
     opt.total_batch_size = opt.batch_size
     total_effort = 0
-    no_each_time = 50
+    no_each_time = 0
     opt.world_size = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
     opt.global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
     rank = opt.global_rank
@@ -718,12 +693,8 @@ def active_learning(opt):
     if opt.global_rank in [-1, 0]:
         check_git_status()
         check_requirements(exclude=('pycocotools', 'thop'))
-    itr = 7
-    recalls = []
-    precisions = []
-    thresholds = []
+
     while not done :
-        itr = itr+1
         if first_time :
             first_time = False
             ema = ModelEMA(model) if rank in [-1, 0] else None
@@ -748,7 +719,7 @@ def active_learning(opt):
             print("Training again :-")
             model = fine_tune(opt, "trial.pt", device, hyp) 
         print("Getting confidence scores")
-        scores_ordered_list = get_confidence_scores("trial.pt", active_learning_path , device, epistemic_uncertainty=opt.bayesian)
+        scores_ordered_list = get_confidence_scores("trial.pt", active_learning_path , device)
         curr_paths = []
         for i in range(no_each_time) :
             score, path = scores_ordered_list[i]
@@ -756,44 +727,33 @@ def active_learning(opt):
             curr_paths.append(path)
         print("")
         # print(curr_paths)
+        # total_effort += no_each_time*(1 - get_map_of_labels(opt, "trial.pt", curr_paths, device, hyp)[0])
+        print("Current effort : ", total_effort)
         print("Getting new threshold :-")
-        new_conf_thres = get_thres(opt, "trial.pt", device, hyp)
-        thresholds.append(new_conf_thres)
-        print("New confidence threshold for batch ", itr, ": ", new_conf_thres)
-        prec,recall = get_precision_recall_at(opt, "trial.pt", curr_paths, device, hyp, new_conf_thres)
-        precisions.append(prec)
-        recalls.append(recall)
-        print("Average precision, recall of displayed boxes : ", prec, recall)
-        print("Moving these for training : " , curr_paths)
-        batch_save_path = train_path.replace("train","batch_a"+str(itr))
-        batch_save_path_d = train_path.replace("train","batch_d"+str(itr))
-        copy_images(active_learning_path, batch_save_path, curr_paths)
-        dummy_paths = []
-        for i in range(10) :
-            if len(scores_ordered_list)-1-i < 0 :
-                continue
-            score, path = scores_ordered_list[len(scores_ordered_list)-1-i]
+        new_thres = get_thres(opt, "trial.pt", device, hyp)
+        print("New confidence threshold : ", new_thres)
+        automated_label_paths = []
+        for i in range(len(scores_ordered_list)) :
+            score, path = scores_ordered_list[i]
             # print(score)
-            dummy_paths.append(path)
-        copy_images(active_learning_path, batch_save_path_d, dummy_paths)
+            if score>new_thres :
+                automated_label_paths.append(path)
+        print("Moving these to auto-labeled cat : " , automated_label_paths)
+        #TODO : Draw labels on these images
+        transfer_images(active_learning_path, automated_label_path, automated_label_paths)
+        print("Moving these for training : " , curr_paths)
         transfer_images(active_learning_path, train_path, curr_paths)
         opt.epochs = opt.epochs - epochs_red
         if len(glob.glob(active_learning_path + "/*")) < no_each_time :
-            # transfer_images(active_learning_path, automated_label_path, glob.glob(active_learning_path + "/*"))
+            transfer_images(active_learning_path, automated_label_path, glob.glob(active_learning_path + "/*"))
             done = True
     
     print(f'Done. ({time.time() - t0:.3f}s)')
-    print("Precisions : ", precisions)
-    print("Recalls : ", recalls)
-    print("Thresholds :", thresholds)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--weights', type=str, default='yolov5s.pt', help='initial weights path')
-    parser.add_argument('--model_qual', type=float, default='0.1', help='Model quality')
-    parser.add_argument('--iou_qual', type=float, default='0.6', help='IOU quality')
-    parser.add_argument('--prec_qual', type=float, default='0.7', help='Precision quality')
     parser.add_argument('--cfg', type=str, default='', help='model.yaml path')
     parser.add_argument('--data', type=str, default='data/coco128.yaml', help='data.yaml path')
     parser.add_argument('--hyp', type=str, default='data/hyp.scratch.yaml', help='hyperparameters path')
@@ -801,7 +761,6 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, default=16, help='total batch size for all GPUs')
     parser.add_argument('--img-size', nargs='+', type=int, default=[640, 640], help='[train, test] image sizes')
     parser.add_argument('--rect', action='store_true', help='rectangular training')
-    parser.add_argument('--bayesian', action='store_true', help='Use MC dropout bayesian method')
     parser.add_argument('--resume', nargs='?', const=True, default=False, help='resume most recent training')
     parser.add_argument('--nosave', action='store_true', help='only save final checkpoint')
     parser.add_argument('--notest', action='store_true', help='only test final epoch')
